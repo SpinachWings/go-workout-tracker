@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
@@ -20,11 +21,17 @@ func VerifyEmail(verificationCode string, userEmail string) error {
 	var updatedUser models.User
 	result := initializers.DB.First(&updatedUser, "email_verification_code = ? AND email = ?", verificationCode, userEmail)
 	if result.Error != nil {
+		// we don't log as this action is expected if a user wrongly uses this endpoint
 		return result.Error
 	}
 
 	updatedUser.EmailVerificationCode = ""
 	updatedUser.IsVerified = true
 	result = initializers.DB.Save(&updatedUser)
-	return result.Error
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Error saving user after verifying email: %s: %s"), userEmail, result.Error.Error())
+		return result.Error
+	}
+
+	return nil
 }

@@ -12,7 +12,7 @@ func init() {
 }
 
 func main() {
+	go services.DeleteExpiredUnverifiedUsers()
+	go services.RemoveExpiredPasswordResetCodes()
 	InitRoutes()
-	services.InitCheckForExpiredUnverifiedUsers()
-	services.InitCheckForExpiredPasswordResetCodes()
 }

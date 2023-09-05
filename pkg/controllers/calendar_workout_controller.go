@@ -26,7 +26,6 @@ type allCalendarWorkoutsIncludingItemsToDelete struct {
 
 func PutCalendarWorkouts(c *gin.Context) {
 	userId, exists := c.Get("user")
-	//userId = userId.(uint) + 1 // just for testing crap
 	if !exists {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -55,7 +54,7 @@ func PutCalendarWorkouts(c *gin.Context) {
 		if err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return // will this actually return form the whole fn tho?
+			return
 		}
 		workoutsToUpdateOrCreate = append(workoutsToUpdateOrCreate, calendarWorkoutToUpdateOrCreate)
 	}
@@ -138,14 +137,11 @@ func GetCalendarWorkouts(c *gin.Context) {
 		return
 	}
 
-	var calendarWorkouts []models.CalendarWorkout
-	initializers.DB.Find(&calendarWorkouts, "user_id = ?", userId)
-
-	var calendarExercises []models.CalendarExercise
-	initializers.DB.Find(&calendarExercises, "user_id = ?", userId)
-
-	var calendarSets []models.CalendarSet
-	initializers.DB.Find(&calendarSets, "user_id = ?", userId)
+	calendarWorkouts, calendarExercises, calendarSets, err := services.FindCalendarWorkouts(userId.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
 
 	workoutsByDate := make(map[string]models.CalendarWorkout, len(calendarWorkouts))
 	for _, workout := range calendarWorkouts {

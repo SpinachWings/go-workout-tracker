@@ -22,6 +22,7 @@ func CreateAudit(auditType constants.AuditType, userId uint, customMessage strin
 		CustomMessage: customMessage,
 	}
 
+	// don't need to return an error as not auditing won't cause any further problems
 	result := initializers.DB.Create(&audit)
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Failed to create audit: %s for user with ID: %s: %s", auditType.Description, userId, result.Error.Error()))

@@ -1,8 +1,10 @@
 package models
 
 import (
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"log"
 	"time"
 	"workout-tracker-go-app/pkg/initializers"
 )
@@ -17,9 +19,14 @@ type User struct {
 	PasswordResetCodeCreatedAt time.Time
 }
 
-func EncryptPassword(password string) (string, error) {
+func EncryptPassword(password string, userId uint) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
-	if err != nil {
+	if err != nil && userId == 0 {
+		log.Print(fmt.Sprintf("Password hash failed for new user: %s", err.Error()))
+		return "", err
+	}
+	if err != nil && userId != 0 {
+		log.Print(fmt.Sprintf("Password hash failed for user with ID: %d: %s", userId, err.Error()))
 		return "", err
 	}
 	return string(hash), nil
@@ -40,5 +47,10 @@ func CreateUser(email string, hash string, verificationCode string) (User, error
 	}
 
 	result := initializers.DB.Create(&user)
-	return user, result.Error
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("User creation failed for new email: %s: %s", user.Email, result.Error.Error()))
+		return user, result.Error
+	}
+
+	return user, nil
 }

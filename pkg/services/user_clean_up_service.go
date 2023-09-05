@@ -1,7 +1,9 @@
 package services
 
 import (
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"log"
 	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/initializers"
@@ -10,63 +12,71 @@ import (
 )
 
 func DeleteUser(userId uint) {
-	// ensure all correlated tables are deleted as well!
-
+	// incomplete fn
+	// ensure all correlated tables are deleted as well
 	var user models.User
-	// handle error
 	initializers.DB.First(&user, userId)
-	initializers.DB.Delete(&user)
-}
-
-func InitCheckForExpiredUnverifiedUsers() {
-	go DeleteExpiredUnverifiedUsers()
+	initializers.DB.Unscoped().Delete(&user)
 }
 
 func DeleteExpiredUnverifiedUsers() {
-	// we don't log some of the full errors as it will error if no users that meet the condition are found - which is expected sometimes
+	timeFrom := utils.CurrentTimeMinusHoursAsTime(constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.ExpiryTimeInHours)
+	sleepTime := constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.SleepTimeInHours
 
 	var usersWithExpiredUnverifiedEmails []models.User
-	result := initializers.DB.Delete(&usersWithExpiredUnverifiedEmails, "is_verified = ? AND created_at <= ?", false, constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.ExpiryTimeInHours)
-	if result.Error != nil {
-		log.Print("Failed to delete expired users with unverified emails, or none exist")
-	} else {
-		log.Print("Deleted expired users with unverified emails")
+	result := initializers.DB.Find(&usersWithExpiredUnverifiedEmails, "is_verified = ? AND created_at <= ?", false, timeFrom)
+
+	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print("Ran delete expired unverified users but no unverified users were found")
+		utils.SleepForHours(sleepTime)
+		DeleteExpiredUnverifiedUsers()
 	}
 
-	utils.SleepForHours(constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.SleepTimeInHours)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Error finding unverified users to delete: %s"), result.Error.Error())
+		utils.SleepForHours(sleepTime)
+		DeleteExpiredUnverifiedUsers()
+	}
+
+	result = initializers.DB.Unscoped().Delete(&usersWithExpiredUnverifiedEmails)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Error deleting unverified users: %s"), result.Error.Error())
+	}
+
+	log.Print("Successfully deleted unverified users unverified users")
+	utils.SleepForHours(sleepTime)
 	DeleteExpiredUnverifiedUsers()
 }
 
-func InitCheckForExpiredPasswordResetCodes() {
-	go RemoveExpiredPasswordResetCodes()
-}
-
 func RemoveExpiredPasswordResetCodes() {
-	// we don't log some of the full errors as it will error if no users that meet the condition are found - which is expected sometimes
+	timeFrom := utils.CurrentTimeMinusHoursAsTime(constants.GetExpiryCheckTimes().UserPasswordResetCode.ExpiryTimeInHours)
+	sleepTime := constants.GetExpiryCheckTimes().UserPasswordResetCode.SleepTimeInHours
 
 	var usersWithPasswordResetCodes []models.User
-	result := initializers.DB.Find(&usersWithPasswordResetCodes, "password_reset_code != ?", "")
-	if result.Error != nil {
-		log.Print("Failed to find users with password reset codes, or none exist")
-	} else {
-		containsExpired := false
-		for _, userWithPasswordResetCode := range usersWithPasswordResetCodes {
-			passwordResetCodeIsExpired := userWithPasswordResetCode.PasswordResetCodeCreatedAt.Before(utils.CurrentTimeMinusHoursAsTime(constants.GetExpiryCheckTimes().UserPasswordResetCode.ExpiryTimeInHours))
-			if passwordResetCodeIsExpired {
-				userWithPasswordResetCode.PasswordResetCode = ""
-				containsExpired = true // ensure this actually gets re-assigned?
-			}
-		}
+	result := initializers.DB.Find(&usersWithPasswordResetCodes, "password_reset_code != ? AND password_reset_code_created_at <= ?", "", timeFrom)
 
-		if containsExpired {
-			result := initializers.DB.Save(&usersWithPasswordResetCodes)
-			if result.Error != nil {
-				log.Print(fmt.Sprintf("Failed to remove users' expired password reset codes: %s", result.Error.Error()))
-			}
-			log.Print("Removed users' expired password reset codes")
-		}
+	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print("Ran remove expired password reset codes but no users with expired password reset codes were found")
+		utils.SleepForHours(sleepTime)
+		RemoveExpiredPasswordResetCodes()
 	}
 
-	utils.SleepForHours(constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.SleepTimeInHours)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Error finding users with expired password reset codes to delete: %s"), result.Error.Error())
+		utils.SleepForHours(sleepTime)
+		RemoveExpiredPasswordResetCodes()
+	}
+
+	for _, user := range usersWithPasswordResetCodes {
+		user.PasswordResetCode = ""
+	}
+
+	result = initializers.DB.Save(&usersWithPasswordResetCodes)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Failed to remove users' expired password reset codes: %s", result.Error.Error()))
+	}
+
+	log.Print("Successfully removed users' expired password reset codes")
+	utils.SleepForHours(sleepTime)
 	RemoveExpiredPasswordResetCodes()
 }

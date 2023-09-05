@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"gorm.io/gorm"
 	"log"
@@ -30,6 +31,12 @@ func HandleTemplateSplitSave(tx *gorm.DB, splitsToUpdateOrCreate []TemplateSplit
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Template split save failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return nil, result.Error
+	}
+
+	for _, split := range splitsToUpdateOrCreate {
+		if split.UserId != userId {
+			return nil, errors.New("items within JSON do not belong to this user")
+		}
 	}
 
 	savedSplitIds := make([]uint, len(splitsToUpdateOrCreate))

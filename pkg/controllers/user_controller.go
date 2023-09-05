@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/thanhpk/randstr"
+	"gorm.io/gorm"
 	"log"
 	"net/http"
 	"workout-tracker-go-app/pkg/constants"
@@ -43,15 +45,19 @@ func Signup(c *gin.Context) {
 	}
 
 	var alreadyPresentUser models.User
-	initializers.DB.First(&alreadyPresentUser, "email = ?", body.Email)
-	if alreadyPresentUser.ID != 0 {
+	result := initializers.DB.First(&alreadyPresentUser, "email = ?", body.Email)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print(fmt.Sprintf("Error trying to detemine whether user exists with email: %s: %s", body.Email, result.Error.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
+	if alreadyPresentUser.ID == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User with this email already exists"})
 		return
 	}
 
-	hash, err := models.EncryptPassword(body.Password)
+	hash, err := models.EncryptPassword(body.Password, 0)
 	if err != nil {
-		log.Print(fmt.Sprintf("Password hash failed: %s", err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
 		return
 	}
@@ -60,21 +66,20 @@ func Signup(c *gin.Context) {
 
 	err = services.SendVerificationEmail(verificationCode, body.Email)
 	if err != nil {
-		log.Print(fmt.Sprintf("Failed to send verification email: %s", err.Error()))
+		log.Print(fmt.Sprintf("Failed to send verification email to: %s: %s", body.Email, err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
 		return
 	}
 
 	user, err := models.CreateUser(body.Email, hash, verificationCode)
 	if err != nil {
-		log.Print(fmt.Sprintf("User creation failed for new email: %s: %s", user.Email, err.Error()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
 		return
 	}
 
 	models.CreateAudit(constants.GetAuditTypes().UserCreation, user.ID, "")
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("User created with email: %s - a verification email has been sent if this email address exists. If you do not verify your email address within %d hours, the user will be deleted.", user.Email, constants.GetExpiryCheckTimes().UserWithUnverifiedEmail)})
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("User created with email: %s - a verification email has been sent if this email address exists. If you do not verify your email address within %d hours, the user will be deleted.", user.Email, constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.ExpiryTimeInHours)})
 }
 
 func VerifyEmail(c *gin.Context) {
@@ -103,7 +108,12 @@ func Login(c *gin.Context) {
 	}
 
 	var user models.User
-	initializers.DB.First(&user, "email = ?", body.Email)
+	result := initializers.DB.First(&user, "email = ?", body.Email)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print(fmt.Sprintf("Error finding user with email: %s: %s", body.Email, result.Error.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
 	if user.ID == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
 		return
@@ -115,7 +125,7 @@ func Login(c *gin.Context) {
 	}
 
 	err = models.ComparePassword(user.Password, body.Password)
-	if err != nil && utils.IsMismatchedHashAndPassword(err) { // check if this works without any error?
+	if err != nil && utils.IsMismatchedHashAndPassword(err) {
 		models.CreateRateLimitRecord(constants.GetRateLimitActionTypes().Login, user.ID, "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
 		return
@@ -183,7 +193,12 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	var user models.User
-	initializers.DB.First(&user, "email = ?", body.Email)
+	result := initializers.DB.First(&user, "email = ?", body.Email)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print(fmt.Sprintf("Error finding user with email: %s: %s", body.Email, result.Error.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
 	if user.ID == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
 		return
@@ -195,7 +210,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	err = models.ComparePassword(user.Password, body.Password)
-	if err != nil && utils.IsMismatchedHashAndPassword(err) { // check if this works without any error?
+	if err != nil && utils.IsMismatchedHashAndPassword(err) {
 		models.CreateRateLimitRecord(constants.GetRateLimitActionTypes().Delete, user.ID, "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
 		return

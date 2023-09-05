@@ -40,14 +40,13 @@ func ValidateWorkoutIdsForSplit(splitWorkoutLinksToUpdateOrCreate []TemplateSpli
 		return errors.New("all workout ids must exist and belong to the user")
 	}
 
-	var err error
 	for _, workout := range templateWorkouts {
 		if workout.UserId != userId {
-			err = errors.New("all workout ids must exist and belong to the user")
+			return errors.New("all workout ids must exist and belong to the user")
 		}
 	}
 
-	return err
+	return nil
 }
 
 func HandleTemplateSplitWorkoutLinkSave(tx *gorm.DB, splitWorkoutLinksToUpdateOrCreate []TemplateSplitWorkoutLink, userId uint) ([]uint, error) {
@@ -55,6 +54,12 @@ func HandleTemplateSplitWorkoutLinkSave(tx *gorm.DB, splitWorkoutLinksToUpdateOr
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Template split workout link save failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return nil, result.Error
+	}
+
+	for _, link := range splitWorkoutLinksToUpdateOrCreate {
+		if link.UserId != userId {
+			return nil, errors.New("items within JSON do not belong to this user")
+		}
 	}
 
 	savedSplitWorkoutLinkIds := make([]uint, len(splitWorkoutLinksToUpdateOrCreate))

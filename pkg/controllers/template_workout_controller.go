@@ -19,7 +19,6 @@ type allTemplateWorkouts []templateWorkout
 
 func PutTemplateWorkouts(c *gin.Context) {
 	userId, exists := c.Get("user")
-	//userId = userId.(uint) + 1 // just for testing crap
 	if !exists {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -104,11 +103,11 @@ func GetTemplateWorkouts(c *gin.Context) {
 		return
 	}
 
-	var templateWorkouts []models.TemplateWorkout
-	initializers.DB.Find(&templateWorkouts, "user_id = ?", userId)
-
-	var templateExercises []models.TemplateExercise
-	initializers.DB.Find(&templateExercises, "user_id = ?", userId)
+	templateWorkouts, templateExercises, err := services.FindTemplateWorkouts(userId.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
 
 	orderedWorkouts := make([]models.TemplateWorkout, len(templateWorkouts))
 	for _, workout := range templateWorkouts {

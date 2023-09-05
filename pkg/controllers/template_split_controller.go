@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
+	"workout-tracker-go-app/pkg/services"
 )
 
 type workoutLink struct {
@@ -46,6 +47,7 @@ func PutTemplateSplits(c *gin.Context) {
 	tx := initializers.DB.Begin()
 
 	savedSplitsIds, err := models.HandleTemplateSplitSave(tx, splitsToUpdateOrCreate, userId.(uint))
+
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
@@ -70,6 +72,11 @@ func PutTemplateSplits(c *gin.Context) {
 	}
 
 	savedSplitWorkoutLinkIds, err := models.HandleTemplateSplitWorkoutLinkSave(tx, splitWorkoutLinksToUpdateOrCreate, userId.(uint))
+	if err != nil && err.Error() == "items within JSON do not belong to this user" {
+		tx.Rollback()
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
@@ -102,11 +109,11 @@ func GetTemplateSplits(c *gin.Context) {
 		return
 	}
 
-	var templateSplits []models.TemplateSplit
-	initializers.DB.Find(&templateSplits, "user_id = ?", userId)
-
-	var templateSplitWorkoutLinks []models.TemplateSplitWorkoutLink
-	initializers.DB.Find(&templateSplitWorkoutLinks, "user_id = ?", userId)
+	templateSplits, templateSplitWorkoutLinks, err := services.FindTemplateSplits(userId.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		return
+	}
 
 	orderedSplits := make([]models.TemplateSplit, len(templateSplits))
 	for _, split := range templateSplits {
