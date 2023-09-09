@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
 	"workout-tracker-go-app/pkg/services"
@@ -28,13 +29,18 @@ func PutTemplateWorkouts(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	fmt.Println(err)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	var workoutsToUpdateOrCreate []models.TemplateWorkout
 	for orderInBundle, workout := range body {
 		workoutsToUpdateOrCreate = append(workoutsToUpdateOrCreate, models.TemplateWorkoutToUpdateOrCreate(userId.(uint), orderInBundle, workout.Description, workout.Id))
+	}
+	maxWorkouts := constants.GetRestrictions().TemplateWorkoutsPerUser.GetRestrictionAmount(false)
+	if len(workoutsToUpdateOrCreate) > maxWorkouts {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of workouts cannot exceed: %d", maxWorkouts)})
+		return
 	}
 
 	tx := initializers.DB.Begin()
@@ -47,14 +53,28 @@ func PutTemplateWorkouts(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	var exercisesToUpdateOrCreate []models.TemplateExercise
 	for orderInBundle, workout := range body {
+		exerciseGroupsPerWorkoutMaxLength := constants.GetRestrictions().TemplateMaxExerciseGroupsPerWorkout.GetRestrictionAmount(false)
+		if len(workout.Exercises) > exerciseGroupsPerWorkoutMaxLength {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of exercises grousp per workout cannot exceed: %d", exerciseGroupsPerWorkoutMaxLength)})
+			return
+		}
+
 		workoutId := savedWorkoutsIds[orderInBundle]
 		for orderInWorkout, exerciseGroup := range workout.Exercises {
+			exercisesPerGroupMaxLength := constants.GetRestrictions().TemplateMaxExercisesPerGroup.GetRestrictionAmount(false)
+			if len(exerciseGroup) > exercisesPerGroupMaxLength {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of exercises per group (superset) cannot exceed: %d", exercisesPerGroupMaxLength)})
+				return
+			}
+
 			exerciseGroupConverter := services.TemplateExerciseGroupConverter{
 				ExerciseGroup:  exerciseGroup,
 				UserId:         userId.(uint),
@@ -73,27 +93,27 @@ func PutTemplateWorkouts(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleTemplateWorkoutDelete(tx, savedWorkoutsIds, userId.(uint))
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleTemplateExerciseDelete(tx, savedExerciseIds, userId.(uint))
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Template workouts updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "template workouts updated"})
 }
 
 func GetTemplateWorkouts(c *gin.Context) {
@@ -105,7 +125,7 @@ func GetTemplateWorkouts(c *gin.Context) {
 
 	templateWorkouts, templateExercises, err := services.FindTemplateWorkouts(userId.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 

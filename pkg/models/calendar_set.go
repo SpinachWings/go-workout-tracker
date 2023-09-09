@@ -21,12 +21,33 @@ type CalendarSet struct {
 	WorkoutDate       string
 }
 
-// if isIsometric - reps becomes 1
-// isometric hold time cannot be null if is isometric
-// reps OR isometricHoldTime, weight & kgorlbs cannot be null if workout id is completed
-// ensure kgOrLbs is kg or lbs
+func CalendarSetToUpdateOrCreate(exerciseName string, userId uint, workoutId uint, orderInExercise int, weight int, kgOrLbs string, reps int, isometricHoldTime int, id uint, workoutDate string, exerciseIsIsometric bool, workoutIsCompleted bool) (CalendarSet, error) {
+	repsToUse := reps
+	if exerciseIsIsometric {
+		repsToUse = 1
+	}
 
-func CalendarSetToUpdateOrCreate(exerciseName string, userId uint, workoutId uint, orderInExercise int, weight int, kgOrLbs string, reps int, isometricHoldTime int, id uint, workoutDate string) CalendarSet {
+	isometricHoldTimeToUse := isometricHoldTime
+	if !exerciseIsIsometric {
+		isometricHoldTimeToUse = 0
+	}
+
+	if workoutIsCompleted && exerciseIsIsometric && isometricHoldTime == 0 {
+		return BlankCalendarSet(), errors.New("isometric hold time must be filled in for all sets of isometric exercises if workout is complete")
+	}
+
+	if workoutIsCompleted && !exerciseIsIsometric && reps == 0 {
+		return BlankCalendarSet(), errors.New("reps must be filled in for all sets of relevant exercises if workout is complete")
+	}
+
+	if workoutIsCompleted && !exerciseIsIsometric && weight > 0 && kgOrLbs == "" {
+		return BlankCalendarSet(), errors.New("kg or lbs must be defined for all sets of relevant exercises if workout is complete")
+	}
+
+	if kgOrLbs != "kg" && kgOrLbs != "lbs" && kgOrLbs != "" {
+		return BlankCalendarSet(), errors.New("incorrect value for kg or lbs")
+	}
+
 	return CalendarSet{
 		ExerciseName:      exerciseName,
 		UserId:            userId,
@@ -34,16 +55,31 @@ func CalendarSetToUpdateOrCreate(exerciseName string, userId uint, workoutId uin
 		OrderInExercise:   orderInExercise,
 		Weight:            weight,
 		KgOrLbs:           kgOrLbs,
-		Reps:              reps,
-		IsometricHoldTime: isometricHoldTime,
+		Reps:              repsToUse,
+		IsometricHoldTime: isometricHoldTimeToUse,
 		WorkoutDate:       workoutDate,
 		Model:             gorm.Model{ID: id},
+	}, nil
+}
+
+func BlankCalendarSet() CalendarSet {
+	return CalendarSet{
+		ExerciseName:      "",
+		UserId:            0,
+		WorkoutId:         0,
+		OrderInExercise:   0,
+		Weight:            0,
+		KgOrLbs:           "",
+		Reps:              0,
+		IsometricHoldTime: 0,
+		WorkoutDate:       "",
+		Model:             gorm.Model{ID: 0},
 	}
 }
 
 func HandleCalendarSetSave(tx *gorm.DB, setsToUpdateOrCreate []CalendarSet, userId uint) ([]uint, error) {
 	result := tx.Model(&CalendarSet{}).Save(&setsToUpdateOrCreate)
-	if result.Error != nil {
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrEmptySlice) {
 		log.Print(fmt.Sprintf("Calendar set save failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return nil, result.Error
 	}
@@ -64,7 +100,7 @@ func HandleCalendarSetSave(tx *gorm.DB, setsToUpdateOrCreate []CalendarSet, user
 
 func HandleCalendarSetDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedSetIds []uint, userId uint) error {
 	var setsToDelete []CalendarSet
-	result := tx.Model(&CalendarSet{}).Unscoped().Delete(&setsToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, savedSetIds)
+	result := tx.Model(&CalendarSet{}).Unscoped().Delete(&setsToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, append(savedSetIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Calendar set deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

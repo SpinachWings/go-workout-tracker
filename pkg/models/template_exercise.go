@@ -59,7 +59,7 @@ func HandleTemplateExerciseSave(tx *gorm.DB, exercisesToUpdateOrCreate []Templat
 
 func HandleTemplateExerciseDelete(tx *gorm.DB, savedExerciseIds []uint, userId uint) error {
 	var exercisesToDelete []TemplateExercise
-	result := tx.Model(&TemplateExercise{}).Unscoped().Delete(&exercisesToDelete, "user_id = ? AND id not in ?", userId, savedExerciseIds)
+	result := tx.Model(&TemplateExercise{}).Unscoped().Delete(&exercisesToDelete, "user_id = ? AND id not in ?", userId, append(savedExerciseIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Template exercise deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

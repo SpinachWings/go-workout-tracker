@@ -48,7 +48,7 @@ func HandleTemplateSplitSave(tx *gorm.DB, splitsToUpdateOrCreate []TemplateSplit
 
 func HandleTemplateSplitDelete(tx *gorm.DB, userId uint, savedSplitsIds []uint) error {
 	var splitsToDelete TemplateSplit
-	result := tx.Model(TemplateSplit{}).Unscoped().Delete(&splitsToDelete, "user_id = ? AND id not in ?", userId, savedSplitsIds)
+	result := tx.Model(TemplateSplit{}).Unscoped().Delete(&splitsToDelete, "user_id = ? AND id not in ?", userId, append(savedSplitsIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Template split deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

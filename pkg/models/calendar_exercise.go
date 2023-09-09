@@ -40,7 +40,7 @@ func CalendarExerciseToUpdateOrCreate(exerciseName string, userId uint, workoutI
 
 func HandleCalendarExerciseSave(tx *gorm.DB, exercisesToUpdateOrCreate []CalendarExercise, userId uint) ([]uint, error) {
 	result := tx.Model(&CalendarExercise{}).Save(&exercisesToUpdateOrCreate)
-	if result.Error != nil {
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrEmptySlice) {
 		log.Print(fmt.Sprintf("Calendar exercise save failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return nil, result.Error
 	}
@@ -60,7 +60,7 @@ func HandleCalendarExerciseSave(tx *gorm.DB, exercisesToUpdateOrCreate []Calenda
 
 func HandleCalendarExerciseDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedExerciseIds []uint, userId uint) error {
 	var exercisesToDelete []CalendarExercise
-	result := tx.Model(&CalendarExercise{}).Unscoped().Delete(&exercisesToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, savedExerciseIds)
+	result := tx.Model(&CalendarExercise{}).Unscoped().Delete(&exercisesToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, append(savedExerciseIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Calendar exercise deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

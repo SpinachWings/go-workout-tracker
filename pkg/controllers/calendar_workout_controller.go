@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
 	"workout-tracker-go-app/pkg/services"
@@ -35,7 +36,7 @@ func PutCalendarWorkouts(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	fmt.Println(err)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -44,7 +45,7 @@ func PutCalendarWorkouts(c *gin.Context) {
 	err = models.HandleCalendarWorkoutDelete(tx, body.WorkoutIdsToDelete, userId.(uint))
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -67,23 +68,49 @@ func PutCalendarWorkouts(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	var exercisesToUpdateOrCreate []models.CalendarExercise
 	var setsToUpdateOrCreate []models.CalendarSet
 	for _, workout := range body.AllCalendarWorkouts {
+		exerciseGroupsPerWorkoutMaxLength := constants.GetRestrictions().CalendarMaxExerciseGroupsPerWorkout.GetRestrictionAmount(false)
+		if len(workout.Exercises) > exerciseGroupsPerWorkoutMaxLength {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of exercises grousp per workout cannot exceed: %d", exerciseGroupsPerWorkoutMaxLength)})
+			return
+		}
+
 		workoutId := savedWorkoutsIdsMap[workout.Date]
 		for orderInWorkout, exerciseGroup := range workout.Exercises {
-			exerciseGroupConverter := services.CalendarExerciseGroupConverter{
-				ExerciseGroup:  exerciseGroup,
-				UserId:         userId.(uint),
-				WorkoutId:      workoutId,
-				OrderInWorkout: orderInWorkout,
-				WorkoutDate:    workout.Date,
+			exercisesPerGroupMaxLength := constants.GetRestrictions().CalendarMaxExercisesPerGroup.GetRestrictionAmount(false)
+			if len(exerciseGroup) > exercisesPerGroupMaxLength {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of exercises per group (superset) cannot exceed: %d", exercisesPerGroupMaxLength)})
+				return
 			}
-			exerciseGroupConverter.CalendarExerciseGroupToRelevantModel(&exercisesToUpdateOrCreate, &setsToUpdateOrCreate)
+
+			exerciseGroupConverter := services.CalendarExerciseGroupConverter{
+				ExerciseGroup:      exerciseGroup,
+				UserId:             userId.(uint),
+				WorkoutId:          workoutId,
+				OrderInWorkout:     orderInWorkout,
+				WorkoutDate:        workout.Date,
+				WorkoutIsCompleted: workout.IsCompleted,
+			}
+			err = exerciseGroupConverter.CalendarExerciseGroupToRelevantModel(&exercisesToUpdateOrCreate, &setsToUpdateOrCreate)
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		if len(workout.Exercises) == 0 && workout.IsCompleted {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "workout must contain 1 or more exercises if workout is completed"})
+			return
 		}
 	}
 
@@ -95,7 +122,7 @@ func PutCalendarWorkouts(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -107,27 +134,27 @@ func PutCalendarWorkouts(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleCalendarExerciseDelete(tx, savedWorkoutIdsSlice, savedExerciseIds, userId.(uint))
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleCalendarSetDelete(tx, savedWorkoutIdsSlice, savedSetIds, userId.(uint))
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Calendar workouts updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "calendar workouts updated"})
 }
 
 func GetCalendarWorkouts(c *gin.Context) {
@@ -139,7 +166,7 @@ func GetCalendarWorkouts(c *gin.Context) {
 
 	calendarWorkouts, calendarExercises, calendarSets, err := services.FindCalendarWorkouts(userId.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 

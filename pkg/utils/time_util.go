@@ -25,3 +25,15 @@ func DateAsStringIsInFuture(date string) bool {
 	currentDate := currentTime.Format("2020-01-30")
 	return date > currentDate
 }
+
+func DateAsStringIsMoreThanNumYearsInFuture(date string, years int) bool {
+	currentTime := time.Now().AddDate(years, 0, 0)
+	currentDate := currentTime.Format("2020-01-30")
+	return date > currentDate
+}
+
+func DateAsStringIsLessThanNumYearsInPast(date string, years int) bool {
+	currentTime := time.Now().AddDate(-years, 0, 0)
+	currentDate := currentTime.Format("2020-01-30")
+	return date < currentDate
+}

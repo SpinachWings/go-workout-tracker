@@ -71,7 +71,7 @@ func HandleTemplateSplitWorkoutLinkSave(tx *gorm.DB, splitWorkoutLinksToUpdateOr
 
 func HandleTemplateSplitWorkoutLinkDelete(tx *gorm.DB, userId uint, savedSplitWorkoutLinkIds []uint) error {
 	var splitWorkoutLinksToDelete TemplateSplitWorkoutLink
-	result := tx.Model(TemplateSplitWorkoutLink{}).Unscoped().Delete(&splitWorkoutLinksToDelete, "user_id = ? AND id not in ?", userId, savedSplitWorkoutLinkIds)
+	result := tx.Model(TemplateSplitWorkoutLink{}).Unscoped().Delete(&splitWorkoutLinksToDelete, "user_id = ? AND id not in ?", userId, append(savedSplitWorkoutLinkIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Template split deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

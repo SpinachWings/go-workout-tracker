@@ -1,9 +1,7 @@
 package services
 
 import (
-	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"log"
 	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/initializers"
@@ -26,7 +24,7 @@ func DeleteExpiredUnverifiedUsers() {
 	var usersWithExpiredUnverifiedEmails []models.User
 	result := initializers.DB.Find(&usersWithExpiredUnverifiedEmails, "is_verified = ? AND created_at <= ?", false, timeFrom)
 
-	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if len(usersWithExpiredUnverifiedEmails) == 0 {
 		log.Print("Ran delete expired unverified users but no unverified users were found")
 		utils.SleepForHours(sleepTime)
 		DeleteExpiredUnverifiedUsers()
@@ -55,7 +53,7 @@ func RemoveExpiredPasswordResetCodes() {
 	var usersWithPasswordResetCodes []models.User
 	result := initializers.DB.Find(&usersWithPasswordResetCodes, "password_reset_code != ? AND password_reset_code_created_at <= ?", "", timeFrom)
 
-	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if len(usersWithPasswordResetCodes) == 0 {
 		log.Print("Ran remove expired password reset codes but no users with expired password reset codes were found")
 		utils.SleepForHours(sleepTime)
 		RemoveExpiredPasswordResetCodes()

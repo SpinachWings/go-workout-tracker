@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"regexp"
+	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/utils"
 )
 
@@ -25,6 +26,16 @@ func CalendarWorkoutToUpdateOrCreate(userId uint, date string, description strin
 
 	if utils.DateAsStringIsInFuture(date) && isCompleted {
 		return BlankCalendarWorkout(), errors.New("workout cannot be completed if date is in future")
+	}
+
+	maxYears := constants.GetRestrictions().CalendarWorkoutMaxDateYears.GetRestrictionAmount(false)
+	if utils.DateAsStringIsMoreThanNumYearsInFuture(date, maxYears) {
+		return BlankCalendarWorkout(), errors.New(fmt.Sprintf("date cannot be more than: %d years in the future", maxYears))
+	}
+
+	minYears := constants.GetRestrictions().CalendarWorkoutMinDateYears.GetRestrictionAmount(false)
+	if utils.DateAsStringIsLessThanNumYearsInPast(date, minYears) {
+		return BlankCalendarWorkout(), errors.New(fmt.Sprintf("date cannot be less than: %d years in the past", minYears))
 	}
 
 	return CalendarWorkout{

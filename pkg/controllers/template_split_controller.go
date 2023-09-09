@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
 	"workout-tracker-go-app/pkg/services"
@@ -35,22 +36,37 @@ func PutTemplateSplits(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	fmt.Println(err)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	var splitsToUpdateOrCreate []models.TemplateSplit
+	maxDuration := constants.GetRestrictions().TemplateSplitMaxDuration.GetRestrictionAmount(false)
 	for order, split := range body {
+		if split.Duration > maxDuration {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("length of split in days cannot exceed: %d", maxDuration)})
+			return
+		}
 		splitsToUpdateOrCreate = append(splitsToUpdateOrCreate, models.TemplateSplitToUpdateOrCreate(userId.(uint), split.Description, split.Duration, split.Id, order))
 	}
 
 	tx := initializers.DB.Begin()
 
 	savedSplitsIds, err := models.HandleTemplateSplitSave(tx, splitsToUpdateOrCreate, userId.(uint))
-
+	if err != nil && err.Error() == "items within JSON do not belong to this user" {
+		tx.Rollback()
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
+		return
+	}
+	maxSplits := constants.GetRestrictions().TemplateSplitsPerUser.GetRestrictionAmount(false)
+	if len(savedSplitsIds) > maxSplits {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("number of splits cannot exceed: %d", maxSplits)})
 		return
 	}
 
@@ -59,6 +75,12 @@ func PutTemplateSplits(c *gin.Context) {
 		splitId := splitsToUpdateOrCreate[i].ID
 		var linksForSplit []models.TemplateSplitWorkoutLink
 		for _, link := range split.WorkoutLinks {
+			// position is 0 based, duration is number of days (starts at 1)
+			if link.PositionInSplit >= split.Duration {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cannot have a workout link within a split on a day that exceeds the split's duration in days"})
+				return
+			}
 			linksForSplit = append(linksForSplit, models.TemplateSplitWorkoutLinkToUpdateOrCreate(userId.(uint), splitId, link.WorkoutId, link.PositionInSplit, link.Id))
 		}
 		splitWorkoutLinksToUpdateOrCreate = append(splitWorkoutLinksToUpdateOrCreate, linksForSplit...)
@@ -79,27 +101,27 @@ func PutTemplateSplits(c *gin.Context) {
 	}
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleTemplateSplitDelete(tx, userId.(uint), savedSplitsIds)
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	err = models.HandleTemplateSplitWorkoutLinkDelete(tx, userId.(uint), savedSplitWorkoutLinkIds)
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Template splits updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "template splits updated"})
 }
 
 func GetTemplateSplits(c *gin.Context) {
@@ -111,7 +133,7 @@ func GetTemplateSplits(c *gin.Context) {
 
 	templateSplits, templateSplitWorkoutLinks, err := services.FindTemplateSplits(userId.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 

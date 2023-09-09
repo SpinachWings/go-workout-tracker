@@ -1,6 +1,9 @@
 package services
 
 import (
+	"errors"
+	"fmt"
+	"workout-tracker-go-app/pkg/constants"
 	"workout-tracker-go-app/pkg/models"
 )
 
@@ -24,40 +27,55 @@ type CalendarExercise struct {
 type CalendarExerciseGroup []CalendarExercise
 
 type CalendarExerciseGroupConverter struct {
-	ExerciseGroup  CalendarExerciseGroup
-	UserId         uint
-	WorkoutId      uint
-	OrderInWorkout int
-	WorkoutDate    string
+	ExerciseGroup      CalendarExerciseGroup
+	UserId             uint
+	WorkoutId          uint
+	OrderInWorkout     int
+	WorkoutDate        string
+	WorkoutIsCompleted bool
 }
 
-func (egc CalendarExerciseGroupConverter) CalendarExerciseGroupToRelevantModel(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) {
+func (egc CalendarExerciseGroupConverter) CalendarExerciseGroupToRelevantModel(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) error {
 	if len(egc.ExerciseGroup) >= 2 {
-		egc.ConvertCalendarSuperset(exercisesToUpdateOrCreate, setsToUpdateOrCreate)
+		return egc.ConvertCalendarSuperset(exercisesToUpdateOrCreate, setsToUpdateOrCreate)
 	} else {
-		egc.ConvertCalendarSingleExercise(exercisesToUpdateOrCreate, setsToUpdateOrCreate)
+		return egc.ConvertCalendarSingleExercise(exercisesToUpdateOrCreate, setsToUpdateOrCreate)
 	}
 }
 
-func (egc CalendarExerciseGroupConverter) ConvertCalendarSuperset(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) {
+func (egc CalendarExerciseGroupConverter) ConvertCalendarSuperset(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) error {
+	var err error
 	for orderInSuperset, exercise := range egc.ExerciseGroup {
 		*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.CalendarExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, orderInSuperset, exercise.Id, egc.WorkoutDate))
-		egc.ConvertSets(exercise, setsToUpdateOrCreate)
+		err = egc.ConvertSets(exercise, setsToUpdateOrCreate)
 	}
+	return err
 }
 
-func (egc CalendarExerciseGroupConverter) ConvertCalendarSingleExercise(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) {
+func (egc CalendarExerciseGroupConverter) ConvertCalendarSingleExercise(exercisesToUpdateOrCreate *[]models.CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) error {
 	exercise := egc.ExerciseGroup[0]
 	*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.CalendarExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, -1, exercise.Id, egc.WorkoutDate))
-	egc.ConvertSets(exercise, setsToUpdateOrCreate)
+	return egc.ConvertSets(exercise, setsToUpdateOrCreate)
 }
 
-func (egc CalendarExerciseGroupConverter) ConvertSets(exercise CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) {
+func (egc CalendarExerciseGroupConverter) ConvertSets(exercise CalendarExercise, setsToUpdateOrCreate *[]models.CalendarSet) error {
 	var setsForThisExercise []models.CalendarSet
 	for orderInExercise, set := range exercise.Sets {
-		setsForThisExercise = append(setsForThisExercise, models.CalendarSetToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, orderInExercise, set.Weight, set.KgOrLbs, set.Reps, set.IsometricHoldTime, set.Id, egc.WorkoutDate))
+		set, err := models.CalendarSetToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, orderInExercise, set.Weight, set.KgOrLbs, set.Reps, set.IsometricHoldTime, set.Id, egc.WorkoutDate, exercise.IsIsometric, egc.WorkoutIsCompleted)
+		if err != nil {
+			return err
+		}
+		setsForThisExercise = append(setsForThisExercise, set)
+	}
+	maxSets := constants.GetRestrictions().CalendarMaxSetsPerExercise.GetRestrictionAmount(false)
+	if len(setsForThisExercise) > maxSets {
+		return errors.New(fmt.Sprintf("sets per exercise cannot exceed: %d", maxSets))
+	}
+	if len(setsForThisExercise) == 0 && egc.WorkoutIsCompleted {
+		return errors.New("all exercises must have 1 or more sets if workout is completed")
 	}
 	*setsToUpdateOrCreate = append(*setsToUpdateOrCreate, setsForThisExercise...)
+	return nil
 }
 
 func GetCalendarExercisesInThisWorkout(allCalendarExercises []models.CalendarExercise, workoutId uint) []models.CalendarExercise {

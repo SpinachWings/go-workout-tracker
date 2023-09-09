@@ -30,17 +30,17 @@ func Signup(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	fmt.Println(err)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	if !utils.IsValidEmail(body.Email) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email address"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email address"})
 		return
 	}
 
 	if !utils.IsValidPassword(body.Password) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient password - must be between 8-30 characters and contain a number, a lower case and a capital letter"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "insufficient password - must be between 8-30 characters and contain a number, a lower case and a capital letter"})
 		return
 	}
 
@@ -48,17 +48,17 @@ func Signup(c *gin.Context) {
 	result := initializers.DB.First(&alreadyPresentUser, "email = ?", body.Email)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		log.Print(fmt.Sprintf("Error trying to detemine whether user exists with email: %s: %s", body.Email, result.Error.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 	if alreadyPresentUser.ID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User with this email already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user with this email already exists"})
 		return
 	}
 
 	hash, err := models.EncryptPassword(body.Password, 0)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -67,43 +67,43 @@ func Signup(c *gin.Context) {
 	err = services.SendVerificationEmail(verificationCode, body.Email)
 	if err != nil {
 		log.Print(fmt.Sprintf("Failed to send verification email to: %s: %s", body.Email, err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	user, err := models.CreateUser(body.Email, hash, verificationCode)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	models.CreateAudit(constants.GetAuditTypes().UserCreation, user.ID, "")
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("User created with email: %s - a verification email has been sent if this email address exists. If you do not verify your email address within %d hours, the user will be deleted.", user.Email, constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.ExpiryTimeInHours)})
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("user created with email: %s - a verification email has been sent if this email address exists. If you do not verify your email address within %d hours, the user will be deleted.", user.Email, constants.GetExpiryCheckTimes().UserWithUnverifiedEmail.ExpiryTimeInHours)})
 }
 
 func VerifyEmail(c *gin.Context) {
 	var body emailVerificationBody
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	err = services.VerifyEmail(body.VerificationCode, body.Email)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid verification code / user is already verified / user doesn't exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification code / user is already verified / user doesn't exists"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "email verified successfully"})
 }
 
 func Login(c *gin.Context) {
 	var body loginSignupBody
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -111,33 +111,33 @@ func Login(c *gin.Context) {
 	result := initializers.DB.First(&user, "email = ?", body.Email)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		log.Print(fmt.Sprintf("Error finding user with email: %s: %s", body.Email, result.Error.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 	if user.ID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email or password"})
 		return
 	}
 
 	if models.RateLimitIsExceeded(constants.GetRateLimitActionTypes().Login, user.ID, "") {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Rate limit exceeded"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "rate limit exceeded"})
 		return
 	}
 
 	err = models.ComparePassword(user.Password, body.Password)
 	if err != nil && utils.IsMismatchedHashAndPassword(err) {
 		models.CreateRateLimitRecord(constants.GetRateLimitActionTypes().Login, user.ID, "")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email or password"})
 		return
 	}
 	if err != nil {
 		log.Print(fmt.Sprintf("Password comparison failed for user with ID: %d: %s", user.ID, err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
 	if !user.IsVerified {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User is not verified"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user is not verified"})
 		return
 	}
 
@@ -145,7 +145,7 @@ func Login(c *gin.Context) {
 	tokenString, err := services.CreateToken(user.ID, tokenDurationInMinutes)
 	if err != nil {
 		log.Print(fmt.Sprintf("Failed to create token for user with ID: %d: %s", user.ID, err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -160,7 +160,7 @@ func Login(c *gin.Context) {
 }
 
 func ValidateUser(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "User authorized"})
+	c.JSON(http.StatusOK, gin.H{"message": "user authorized"})
 }
 
 func RefreshToken(c *gin.Context) {
@@ -174,7 +174,7 @@ func RefreshToken(c *gin.Context) {
 	tokenString, err := services.CreateToken(userId.(uint), tokenDurationInMinutes)
 	if err != nil {
 		log.Print(fmt.Sprintf("Failed to create token for user with ID: %s: %s", userId, err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -188,7 +188,7 @@ func DeleteUser(c *gin.Context) {
 	var body loginSignupBody
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
@@ -196,28 +196,28 @@ func DeleteUser(c *gin.Context) {
 	result := initializers.DB.First(&user, "email = ?", body.Email)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		log.Print(fmt.Sprintf("Error finding user with email: %s: %s", body.Email, result.Error.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 	if user.ID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email or password"})
 		return
 	}
 
 	if models.RateLimitIsExceeded(constants.GetRateLimitActionTypes().Login, user.ID, "") {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Rate limit exceeded"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "rate limit exceeded"})
 		return
 	}
 
 	err = models.ComparePassword(user.Password, body.Password)
 	if err != nil && utils.IsMismatchedHashAndPassword(err) {
 		models.CreateRateLimitRecord(constants.GetRateLimitActionTypes().Delete, user.ID, "")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email or password"})
 		return
 	}
 	if err != nil {
 		log.Print(fmt.Sprintf("Password comparison failed for user with ID: %d: %s", user.ID, err.Error()))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
@@ -227,5 +227,5 @@ func DeleteUser(c *gin.Context) {
 
 	models.ClearOldRateLimitRecords(constants.GetRateLimitActionTypes().Delete, user.ID, "")
 
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
 }
