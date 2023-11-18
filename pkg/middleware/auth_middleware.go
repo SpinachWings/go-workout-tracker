@@ -1,7 +1,11 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"log"
 	"net/http"
 	"time"
 	"workout-tracker-go-app/pkg/initializers"
@@ -23,7 +27,12 @@ func RequireAuth(c *gin.Context) {
 	}
 
 	var user models.User
-	initializers.DB.First(&user, userId)
+	result := initializers.DB.First(&user, userId)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print(fmt.Sprintf("Error finding user for auth with ID: %d: %s", userId, result.Error.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
+		return
+	}
 	if user.ID == 0 || !user.IsVerified {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return

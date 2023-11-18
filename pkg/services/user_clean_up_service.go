@@ -12,6 +12,30 @@ import (
 func DeleteUser(userId uint) {
 	// incomplete fn
 	// ensure all correlated tables are deleted as well
+	//tx := initializers.DB.Begin()
+
+	//charts
+
+	//splits
+
+	//split links
+
+	//template workouts
+
+	//template exercises
+
+	//calendar workouts
+
+	//calendar exercises
+
+	//calendar sets
+
+	//rate limit actions
+
+	//KEEP audits!
+
+	//user itself
+
 	var user models.User
 	initializers.DB.First(&user, userId)
 	initializers.DB.Unscoped().Delete(&user)

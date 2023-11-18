@@ -26,7 +26,7 @@ func CalendarExerciseToUpdateOrCreate(exerciseName string, userId uint, workoutI
 		isPartOfSuperset = true
 	}
 	return CalendarExercise{
-		ExerciseName:     exerciseName,
+		ExerciseName:     utils.StandardiseCase(exerciseName),
 		UserId:           userId,
 		WorkoutId:        workoutId,
 		OrderInWorkout:   orderInWorkout,

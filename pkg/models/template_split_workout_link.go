@@ -34,7 +34,11 @@ func ValidateWorkoutIdsForSplit(splitWorkoutLinksToUpdateOrCreate []TemplateSpli
 	}
 
 	var templateWorkouts []TemplateWorkout
-	initializers.DB.Find(&templateWorkouts, "id in ?", workoutIds)
+	result := initializers.DB.Find(&templateWorkouts, "id in ?", workoutIds)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Print(fmt.Sprintf("Error finding template workouts for user with ID: %d: %s", userId, result.Error.Error()))
+		return result.Error
+	}
 
 	if len(templateWorkouts) != len(workoutIds) {
 		return errors.New("all workout ids must exist and belong to the user")

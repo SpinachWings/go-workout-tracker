@@ -25,7 +25,7 @@ func TemplateExerciseToUpdateOrCreate(exerciseName string, userId uint, workoutI
 		isPartOfSuperset = true
 	}
 	return TemplateExercise{
-		ExerciseName:     exerciseName,
+		ExerciseName:     utils.StandardiseCase(exerciseName),
 		UserId:           userId,
 		WorkoutId:        workoutId,
 		OrderInWorkout:   orderInWorkout,

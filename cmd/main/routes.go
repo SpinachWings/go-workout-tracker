@@ -31,8 +31,7 @@ func InitRoutes() {
 	router.PUT("/calendar/workouts", middleware.RequireAuth, controllers.PutCalendarWorkouts)
 	router.GET("/calendar/workouts", middleware.RequireAuth, controllers.GetCalendarWorkouts)
 
-	// exercise names for auto complete dropdown list - get from calendar & template workouts with user id - return as array
-	//router.GET("/exercise/names", middleware.RequireAuth, controllers.GetExerciseNames)
+	router.GET("/exercise/names", middleware.RequireAuth, controllers.GetExerciseNames)
 
 	// charts???
 
