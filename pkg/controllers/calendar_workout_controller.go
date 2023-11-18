@@ -8,6 +8,7 @@ import (
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
 	"workout-tracker-go-app/pkg/services"
+	"workout-tracker-go-app/pkg/utils"
 )
 
 type calendarWorkout struct {
@@ -112,6 +113,16 @@ func PutCalendarWorkouts(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "workout must contain 1 or more exercises if workout is completed"})
 			return
 		}
+	}
+
+	var allExerciseNamesWithWorkoutDate []string
+	for _, exercise := range exercisesToUpdateOrCreate {
+		allExerciseNamesWithWorkoutDate = append(allExerciseNamesWithWorkoutDate, fmt.Sprintf("%s_%s", exercise.ExerciseName, exercise.WorkoutDate))
+	}
+	if utils.SliceOfStringContainsDuplicates(allExerciseNamesWithWorkoutDate) {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "the same exercise cannot appear twice in the same workout"})
+		return
 	}
 
 	savedExerciseIds, err := models.HandleCalendarExerciseSave(tx, exercisesToUpdateOrCreate, userId.(uint))

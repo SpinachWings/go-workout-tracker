@@ -10,29 +10,31 @@ import (
 
 type TemplateExercise struct {
 	gorm.Model
-	ExerciseName     string `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
-	UserId           uint   `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
-	WorkoutId        uint   `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
-	OrderInWorkout   int    `gorm:"not null"`
-	IsIsometric      bool   `gorm:"not null;default:false"`
-	IsPartOfSuperset bool   `gorm:"not null;default:false"`
-	OrderInSuperset  int
+	ExerciseName           string `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
+	UserId                 uint   `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
+	WorkoutId              uint   `gorm:"not null;uniqueIndex:idx_user_id_workout_id_exercise_name"`
+	OrderInWorkout         int    `gorm:"not null"`
+	IsIsometric            bool   `gorm:"not null;default:false"`
+	IsPartOfSuperset       bool   `gorm:"not null;default:false"`
+	OrderInSuperset        int
+	OrderOfWorkoutInBundle int `gorm:"not null"`
 }
 
-func TemplateExerciseToUpdateOrCreate(exerciseName string, userId uint, workoutId uint, orderInWorkout int, isIsometric bool, orderInSuperset int, id uint) TemplateExercise {
+func TemplateExerciseToUpdateOrCreate(exerciseName string, userId uint, workoutId uint, orderInWorkout int, isIsometric bool, orderInSuperset int, id uint, orderOfWorkoutInBundle int) TemplateExercise {
 	var isPartOfSuperset bool
 	if orderInSuperset >= 0 {
 		isPartOfSuperset = true
 	}
 	return TemplateExercise{
-		ExerciseName:     utils.StandardiseCase(exerciseName),
-		UserId:           userId,
-		WorkoutId:        workoutId,
-		OrderInWorkout:   orderInWorkout,
-		IsIsometric:      isIsometric,
-		IsPartOfSuperset: isPartOfSuperset,
-		OrderInSuperset:  orderInSuperset,
-		Model:            gorm.Model{ID: id},
+		ExerciseName:           utils.StandardiseCase(exerciseName),
+		UserId:                 userId,
+		WorkoutId:              workoutId,
+		OrderInWorkout:         orderInWorkout,
+		IsIsometric:            isIsometric,
+		IsPartOfSuperset:       isPartOfSuperset,
+		OrderInSuperset:        orderInSuperset,
+		Model:                  gorm.Model{ID: id},
+		OrderOfWorkoutInBundle: orderOfWorkoutInBundle,
 	}
 }
 

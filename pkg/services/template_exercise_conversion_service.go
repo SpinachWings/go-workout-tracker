@@ -13,10 +13,11 @@ type TemplateExercise struct {
 type TemplateExerciseGroup []TemplateExercise
 
 type TemplateExerciseGroupConverter struct {
-	ExerciseGroup  TemplateExerciseGroup
-	UserId         uint
-	WorkoutId      uint
-	OrderInWorkout int
+	ExerciseGroup          TemplateExerciseGroup
+	UserId                 uint
+	WorkoutId              uint
+	OrderInWorkout         int
+	OrderOfWorkoutInBundle int
 }
 
 func (egc TemplateExerciseGroupConverter) TemplateExerciseGroupToRelevantModel(exercisesToUpdateOrCreate *[]models.TemplateExercise) {
@@ -29,13 +30,13 @@ func (egc TemplateExerciseGroupConverter) TemplateExerciseGroupToRelevantModel(e
 
 func (egc TemplateExerciseGroupConverter) ConvertTemplateSuperset(exercisesToUpdateOrCreate *[]models.TemplateExercise) {
 	for orderInSuperset, exercise := range egc.ExerciseGroup {
-		*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.TemplateExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, orderInSuperset, exercise.Id))
+		*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.TemplateExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, orderInSuperset, exercise.Id, egc.OrderOfWorkoutInBundle))
 	}
 }
 
 func (egc TemplateExerciseGroupConverter) ConvertTemplateSingleExercise(exercisesToUpdateOrCreate *[]models.TemplateExercise) {
 	exercise := egc.ExerciseGroup[0]
-	*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.TemplateExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, -1, exercise.Id))
+	*exercisesToUpdateOrCreate = append(*exercisesToUpdateOrCreate, models.TemplateExerciseToUpdateOrCreate(exercise.ExerciseName, egc.UserId, egc.WorkoutId, egc.OrderInWorkout, exercise.IsIsometric, -1, exercise.Id, egc.OrderOfWorkoutInBundle))
 }
 
 func GetTemplateExercisesInThisWorkout(allTemplateExercises []models.TemplateExercise, workoutId uint) []models.TemplateExercise {

@@ -49,7 +49,7 @@ func CalendarSetToUpdateOrCreate(exerciseName string, userId uint, workoutId uin
 	}
 
 	return CalendarSet{
-		ExerciseName:      exerciseName,
+		ExerciseName:      utils.StandardiseCase(exerciseName),
 		UserId:            userId,
 		WorkoutId:         workoutId,
 		OrderInExercise:   orderInExercise,

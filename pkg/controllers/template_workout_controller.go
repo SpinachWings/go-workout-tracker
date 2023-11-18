@@ -8,6 +8,7 @@ import (
 	"workout-tracker-go-app/pkg/initializers"
 	"workout-tracker-go-app/pkg/models"
 	"workout-tracker-go-app/pkg/services"
+	"workout-tracker-go-app/pkg/utils"
 )
 
 type templateWorkout struct {
@@ -76,13 +77,24 @@ func PutTemplateWorkouts(c *gin.Context) {
 			}
 
 			exerciseGroupConverter := services.TemplateExerciseGroupConverter{
-				ExerciseGroup:  exerciseGroup,
-				UserId:         userId.(uint),
-				WorkoutId:      workoutId,
-				OrderInWorkout: orderInWorkout,
+				ExerciseGroup:          exerciseGroup,
+				UserId:                 userId.(uint),
+				WorkoutId:              workoutId,
+				OrderInWorkout:         orderInWorkout,
+				OrderOfWorkoutInBundle: orderInBundle,
 			}
 			exerciseGroupConverter.TemplateExerciseGroupToRelevantModel(&exercisesToUpdateOrCreate)
 		}
+	}
+
+	var allExerciseNamesWithOrderOfWorkoutInBundle []string
+	for _, exercise := range exercisesToUpdateOrCreate {
+		allExerciseNamesWithOrderOfWorkoutInBundle = append(allExerciseNamesWithOrderOfWorkoutInBundle, fmt.Sprintf("%s_%d", exercise.ExerciseName, exercise.OrderOfWorkoutInBundle))
+	}
+	if utils.SliceOfStringContainsDuplicates(allExerciseNamesWithOrderOfWorkoutInBundle) {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "the same exercise cannot appear twice in the same workout"})
+		return
 	}
 
 	savedExerciseIds, err := models.HandleTemplateExerciseSave(tx, exercisesToUpdateOrCreate, userId.(uint))

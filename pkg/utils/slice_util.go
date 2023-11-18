@@ -25,3 +25,14 @@ func CombineTwoSlicesOfStringNoDuplicates(s1 []string, s2 []string) []string {
 	}
 	return combinedSlice
 }
+
+func SliceOfStringContainsDuplicates(slice []string) bool {
+	seen := make(map[string]bool)
+	for _, value := range slice {
+		if seen[value] {
+			return true
+		}
+		seen[value] = true
+	}
+	return false
+}

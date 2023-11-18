@@ -27,13 +27,13 @@ func DateAsStringIsInFuture(date string) bool {
 }
 
 func DateAsStringIsMoreThanNumYearsInFuture(date string, years int) bool {
-	currentTime := time.Now().AddDate(years, 0, 0)
-	currentDate := currentTime.Format("2020-01-30")
-	return date > currentDate
+	futureTime := time.Now().AddDate(years, 0, 0)
+	parsedDate, _ := time.Parse("2020-01-30", date)
+	return parsedDate.After(futureTime)
 }
 
 func DateAsStringIsLessThanNumYearsInPast(date string, years int) bool {
-	currentTime := time.Now().AddDate(-years, 0, 0)
-	currentDate := currentTime.Format("2020-01-30")
-	return date < currentDate
+	pastTime := time.Now().AddDate(-years, 0, 0)
+	parsedDate, _ := time.Parse("2020-01-30", date)
+	return pastTime.Before(parsedDate)
 }
