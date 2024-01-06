@@ -26,6 +26,9 @@ type allCalendarWorkoutsIncludingItemsToDelete struct {
 	WorkoutIdsToDelete  []uint              `json:"workoutIdsToDelete"`
 }
 
+// calendars - save & update all sets and exercises for the workouts passed in (identified by date),
+// delete everything for the WorkoutIdsToDelete passed in
+
 func PutCalendarWorkouts(c *gin.Context) {
 	userId, exists := c.Get("user")
 	if !exists {
@@ -43,7 +46,8 @@ func PutCalendarWorkouts(c *gin.Context) {
 
 	tx := initializers.DB.Begin()
 
-	err = models.HandleCalendarWorkoutDelete(tx, body.WorkoutIdsToDelete, userId.(uint))
+	condition := "user_id = ? AND id in ?"
+	err = models.HandleCalendarWorkoutDelete(tx, body.WorkoutIdsToDelete, userId.(uint), condition)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
@@ -149,14 +153,15 @@ func PutCalendarWorkouts(c *gin.Context) {
 		return
 	}
 
-	err = models.HandleCalendarExerciseDelete(tx, savedWorkoutIdsSlice, savedExerciseIds, userId.(uint))
+	condition = "user_id = ? AND workout_id in ? AND id not in ?"
+	err = models.HandleCalendarExerciseDelete(tx, savedWorkoutIdsSlice, savedExerciseIds, userId.(uint), condition)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
 		return
 	}
 
-	err = models.HandleCalendarSetDelete(tx, savedWorkoutIdsSlice, savedSetIds, userId.(uint))
+	err = models.HandleCalendarSetDelete(tx, savedWorkoutIdsSlice, savedSetIds, userId.(uint), condition)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})

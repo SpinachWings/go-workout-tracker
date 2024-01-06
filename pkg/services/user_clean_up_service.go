@@ -9,36 +9,68 @@ import (
 	"workout-tracker-go-app/pkg/utils"
 )
 
-func DeleteUser(userId uint) {
-	// incomplete fn
-	// ensure all correlated tables are deleted as well
-	//tx := initializers.DB.Begin()
+func DeleteUser(userId uint) error {
+	tx := initializers.DB.Begin()
 
-	//charts
+	// delete user charts once added too
 
-	//splits
+	err := models.HandleTemplateSplitDelete(tx, userId, nil)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//split links
+	err = models.HandleTemplateSplitWorkoutLinkDelete(tx, userId, nil)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//template workouts
+	err = models.HandleTemplateWorkoutDelete(tx, nil, userId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//template exercises
+	err = models.HandleTemplateExerciseDelete(tx, nil, userId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//calendar workouts
+	condition := "user_id = ?"
+	err = models.HandleCalendarWorkoutDelete(tx, nil, userId, condition)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//calendar exercises
+	err = models.HandleCalendarExerciseDelete(tx, nil, nil, userId, condition)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//calendar sets
+	err = models.HandleCalendarSetDelete(tx, nil, nil, userId, condition)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//rate limit actions
+	err = models.DeleteAllRateLimitRecordsForUser(tx, userId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//KEEP audits!
+	err = models.DeleteUser(tx, userId)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	//user itself
-
-	var user models.User
-	initializers.DB.First(&user, userId)
-	initializers.DB.Unscoped().Delete(&user)
+	tx.Commit()
+	return nil
 }
 
 func DeleteExpiredUnverifiedUsers() {

@@ -221,7 +221,12 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	services.DeleteUser(user.ID)
+	err = services.DeleteUser(user.ID)
+	if err != nil {
+		log.Print(fmt.Sprintf("One or more steps of user deletion have failed with user with ID: %d: %s", user.ID, err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unexpected server error"})
+		return
+	}
 
 	models.CreateAudit(constants.GetAuditTypes().UserDeletion, user.ID, "")
 

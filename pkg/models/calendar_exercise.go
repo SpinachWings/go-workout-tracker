@@ -58,7 +58,7 @@ func HandleCalendarExerciseSave(tx *gorm.DB, exercisesToUpdateOrCreate []Calenda
 	return utils.RemoveZerosFromSliceOfUint(savedExerciseIds), nil
 }
 
-func HandleCalendarExerciseDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedExerciseIds []uint, userId uint) error {
+func HandleCalendarExerciseDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedExerciseIds []uint, userId uint, condition string) error {
 	var exercisesToDelete []CalendarExercise
 	result := tx.Model(&CalendarExercise{}).Unscoped().Delete(&exercisesToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, append(savedExerciseIds, 0))
 	if result.Error != nil {

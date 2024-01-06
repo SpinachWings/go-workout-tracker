@@ -54,3 +54,13 @@ func CreateUser(email string, hash string, verificationCode string) (User, error
 
 	return user, nil
 }
+
+func DeleteUser(tx *gorm.DB, userId uint) error {
+	var userToDelete User
+	result := tx.Model(&User{}).Unscoped().Delete(&userToDelete, "id = ?", userId)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("User deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
+		return result.Error
+	}
+	return nil
+}

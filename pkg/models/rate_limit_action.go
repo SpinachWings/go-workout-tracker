@@ -91,3 +91,13 @@ func ClearOldRateLimitRecords(rateLimitActionType constants.RateLimitActionType,
 		log.Print(fmt.Sprintf("Error deleting old rate limit actions of type: %s with identifier: %d / %s: %s", rateLimitActionType.Action, userId, alternativeIdentifier, result.Error.Error()))
 	}
 }
+
+func DeleteAllRateLimitRecordsForUser(tx *gorm.DB, userId uint) error {
+	var rateLimitRecordsToDelete []RateLimitAction
+	result := tx.Model(&RateLimitAction{}).Unscoped().Delete(&rateLimitRecordsToDelete, "user_id = ?", userId)
+	if result.Error != nil {
+		log.Print(fmt.Sprintf("Rate limit action deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
+		return result.Error
+	}
+	return nil
+}

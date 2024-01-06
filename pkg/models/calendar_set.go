@@ -98,9 +98,9 @@ func HandleCalendarSetSave(tx *gorm.DB, setsToUpdateOrCreate []CalendarSet, user
 	return utils.RemoveZerosFromSliceOfUint(savedSetIds), nil
 }
 
-func HandleCalendarSetDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedSetIds []uint, userId uint) error {
+func HandleCalendarSetDelete(tx *gorm.DB, savedWorkoutsIds []uint, savedSetIds []uint, userId uint, condition string) error {
 	var setsToDelete []CalendarSet
-	result := tx.Model(&CalendarSet{}).Unscoped().Delete(&setsToDelete, "user_id = ? AND workout_id in ? AND id not in ?", userId, savedWorkoutsIds, append(savedSetIds, 0))
+	result := tx.Model(&CalendarSet{}).Unscoped().Delete(&setsToDelete, condition, userId, savedWorkoutsIds, append(savedSetIds, 0))
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Calendar set deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error

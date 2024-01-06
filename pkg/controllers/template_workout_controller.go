@@ -19,6 +19,8 @@ type templateWorkout struct {
 
 type allTemplateWorkouts []templateWorkout
 
+// templates - save, update & delete EVERYTHING for the user at once
+
 func PutTemplateWorkouts(c *gin.Context) {
 	userId, exists := c.Get("user")
 	if !exists {

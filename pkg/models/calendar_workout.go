@@ -80,9 +80,9 @@ func HandleCalendarWorkoutSave(tx *gorm.DB, workoutsToUpdateOrCreate []CalendarW
 	return savedWorkoutsIdsMap, utils.RemoveZerosFromSliceOfUint(savedWorkoutsIdsSlice), nil
 }
 
-func HandleCalendarWorkoutDelete(tx *gorm.DB, workoutIdsToDelete []uint, userId uint) error {
+func HandleCalendarWorkoutDelete(tx *gorm.DB, workoutIdsToDelete []uint, userId uint, condition string) error {
 	var workoutsToDelete []CalendarWorkout
-	result := tx.Model(&CalendarWorkout{}).Unscoped().Delete(&workoutsToDelete, "user_id = ? AND id in ?", userId, workoutIdsToDelete)
+	result := tx.Model(&CalendarWorkout{}).Unscoped().Delete(&workoutsToDelete, condition, userId, workoutIdsToDelete)
 	if result.Error != nil {
 		log.Print(fmt.Sprintf("Calendar workout deletion failed for user with ID: %d: %s", userId, result.Error.Error()))
 		return result.Error
