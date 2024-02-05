@@ -155,8 +155,8 @@ func Login(c *gin.Context) {
 
 	c.SetSameSite(http.SameSiteLaxMode)
 	secondsInMinute := 60
-	c.SetCookie("Authorization", tokenString, tokenDurationInMinutes*secondsInMinute, "", "", false, true) //secure = true on prod
-	c.JSON(http.StatusOK, gin.H{"token": tokenString})                                                     // eventually, we don't want to return in this in the body & have it http only
+	c.SetCookie("Authorization", tokenString, tokenDurationInMinutes*secondsInMinute, "", "", false, false) //secure = true on prod
+	c.JSON(http.StatusOK, gin.H{"message": "user logged in"})
 }
 
 func ValidateUser(c *gin.Context) {

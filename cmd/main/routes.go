@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
 	"os"
@@ -11,6 +12,17 @@ import (
 
 func InitRoutes() {
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:           []string{os.Getenv("CLIENT_ORIGIN")},
+		AllowMethods:           []string{"*"},
+		AllowHeaders:           []string{"Access-Control-Allow-Headers", "Origin,Accept", "X-Requested-With", "Content-Type", "Access-Control-Request-Method", "Access-Control-Request-Headers"},
+		AllowCredentials:       true,
+		AllowWildcard:          true,
+		AllowBrowserExtensions: true,
+		AllowWebSockets:        true,
+		AllowFiles:             true,
+	}))
 
 	router.POST("/user/signup", controllers.Signup)
 	router.POST("/user/verify/email", controllers.VerifyEmail)
